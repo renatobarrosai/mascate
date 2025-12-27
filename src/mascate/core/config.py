@@ -43,6 +43,11 @@ class AudioConfig:
     chunk_size: int = 1024
     vad_threshold: float = 0.5
     wake_word: str = "mascate"
+    # Ativacao via hotkey (alternativa ao wake word)
+    hotkey_enabled: bool = True
+    hotkey: str = "ctrl+shift+m"
+    # Se True, desabilita wake word e usa apenas hotkey
+    hotkey_only: bool = False
 
 
 @dataclass
@@ -178,6 +183,9 @@ class Config:
             chunk_size=audio_data.get("chunk_size", 1024),
             vad_threshold=audio_data.get("vad_threshold", 0.5),
             wake_word=audio_data.get("wake_word", "mascate"),
+            hotkey_enabled=audio_data.get("hotkey_enabled", True),
+            hotkey=audio_data.get("hotkey", "ctrl+shift+m"),
+            hotkey_only=audio_data.get("hotkey_only", False),
         )
 
         # Parse LLM config

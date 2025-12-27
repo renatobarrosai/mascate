@@ -1,172 +1,165 @@
 # Mascate
 
-**Assistente de Voz Edge AI para Linux**
+**Assistente de Voz Local para Linux**
 
-Mascate e um assistente de voz local-first focado em privacidade, baixa latencia e identidade cultural brasileira. Processa comandos de voz inteiramente no dispositivo, sem dependencia de cloud.
-
----
-
-## Caracteristicas
-
-- **100% Local:** Nenhum dado sai do seu computador
-- **Baixa Latencia:** <500ms do comando ao feedback
-- **Edge AI:** Otimizado para hardware de consumo (GTX 1650 4GB + 32GB RAM)
-- **Identidade Brasileira:** Voz e personalidade "Futurismo Tropical"
-
----
-
-## Arquitetura
+Mascate e um assistente de voz que roda 100% no seu computador, sem enviar dados para a nuvem. Focado em privacidade, baixa latencia e integracao nativa com o desktop Linux.
 
 ```
-+------------------+     +------------------+     +------------------+
-|     AUDIO        |     |   INTELLIGENCE   |     |    EXECUTOR      |
-|   (Ouvido/Voz)   | --> |    (Cerebro)     | --> | (Guarda-Costas)  |
-+------------------+     +------------------+     +------------------+
-| - Wake Word      |     | - Granite LLM    |     | - Validacao      |
-| - STT (Whisper)  |     | - RAG (BGE-M3)   |     | - Blacklist      |
-| - TTS (Piper)    |     | - GBNF Grammar   |     | - Execucao       |
-| - VAD (Silero)   |     | - Qdrant         |     | - Seguranca      |
-+------------------+     +------------------+     +------------------+
-```
-
-### Cerebro vs Guarda-Costas
-
-- **Cerebro (Granite LLM):** Interpreta linguagem natural, consulta RAG, gera JSON estruturado. NUNCA executa comandos.
-- **Guarda-Costas (Python):** Recebe JSON, valida seguranca, executa via subprocessos. Nao julga semantica, julga RISCO.
-
----
-
-## Stack Tecnologica
-
-| Componente     | Tecnologia                       | Execucao   |
-| -------------- | -------------------------------- | ---------- |
-| LLM            | IBM Granite 4.0 Hybrid 1B (Q8_0) | GPU (VRAM) |
-| STT            | Whisper Large v3 (Q5_K_M)        | CPU        |
-| TTS            | Piper (VITS)                     | CPU        |
-| Embeddings     | BGE-M3                           | CPU        |
-| Banco Vetorial | Qdrant (local mode)              | CPU        |
-| VAD            | Silero v5                        | CPU        |
-| Wake Word      | openWakeWord                     | CPU        |
-
----
-
-## Requisitos
-
-### Hardware Minimo
-
-- GPU: NVIDIA GTX 1650 (4GB VRAM) ou AMD equivalente
-- RAM: 16GB (32GB recomendado)
-- CPU: 8+ cores
-- Storage: 20GB para modelos
-
-### Software
-
-- Linux (Ubuntu 22.04+ ou Arch)
-- Python 3.12+
-- CUDA 12.x ou ROCm (AMD)
-
----
-
-## Instalacao
-
-```bash
-# Clonar repositorio
-git clone https://github.com/seu-usuario/mascate.git
-cd mascate
-
-# Instalar dependencias Python (via uv)
-uv sync
-
-# Instalar dependencias do sistema
-uv run python scripts/install_deps.py
-
-# Baixar modelos
-uv run python scripts/download_models.py
-
-# Executar
-uv run mascate run
+Voce: "Abre o Firefox"
+Mascate: [Abre o Firefox]
+Mascate: "Pronto, Firefox aberto."
 ```
 
 ---
 
-## Estrutura do Projeto
+## Destaques
 
-```
-mascate/
-├── src/mascate/
-│   ├── audio/           # STT, TTS, VAD, Wake Word
-│   ├── intelligence/    # LLM, RAG, GBNF
-│   ├── executor/        # Comandos, seguranca
-│   ├── core/            # Orquestracao, config
-│   └── interface/       # CLI, HUD
-├── scripts/
-│   ├── download_models.py
-│   └── install_deps.py
-├── tests/
-├── docs/                # Documentacao tecnica
-└── config.toml          # Configuracao
-```
-
----
-
-## Documentacao
-
-Documentacao tecnica completa em `docs/`:
-
-- [Arquitetura](docs/00-architecture-overview.md)
-- [Especificacoes de Modelos](docs/01-models-spec.md)
-- [Fluxo do Pipeline](docs/02-pipeline-flow.md)
-- [Plano de Implementacao](docs/03-implementation-plan.md)
-- [Seguranca](docs/07-security.md)
-
----
-
-## Comandos Suportados (PoC)
-
-Foco nos 4 pilares que cobrem 80% do uso:
-
-### Navegador
-
-- "Abre o YouTube"
-- "Pesquisa Python no Google"
-
-### Midia
-
-- "Toca musica"
-- "Proxima faixa"
-- "Pausa"
-
-### Arquivos
-
-- "Abre a pasta Downloads"
-- "Cria uma pasta chamada projetos"
-
-### Aplicativos
-
-- "Abre o VS Code"
-- "Fecha o Firefox"
+- **100% Offline** - Processamento local, seus dados nunca saem do computador
+- **Baixa Latencia** - Resposta em menos de 500ms
+- **Codigo Aberto** - MIT License, contribuicoes bem-vindas
+- **Modular** - Use apenas os componentes que precisar
 
 ---
 
 ## Status do Projeto
 
-**Fase Atual:** PoC Fase 0 (Fundacao)
+> **Fase Atual: Prova de Conceito (PoC)**
+>
+> O projeto esta em desenvolvimento ativo. Funcionalidades basicas estao implementadas,
+> mas ainda nao esta pronto para uso em producao.
 
-- [x] Documentacao consolidada
-- [ ] Estrutura de codigo
-- [ ] Download de modelos
-- [ ] Pipeline de audio
-- [ ] Integracao LLM
-- [ ] Executor seguro
+| Componente       | Status      |
+| ---------------- | ----------- |
+| Captura de Audio | Funcional   |
+| Ativacao Hotkey  | Funcional   |
+| Wake Word        | Parcial [1] |
+| STT (Whisper)    | Funcional   |
+| TTS (Piper)      | Funcional   |
+| LLM (Granite)    | Funcional   |
+| Executor         | Funcional   |
+| Interface (HUD)  | Funcional   |
+
+[1] Wake word requer Python < 3.12 (limitacao do tflite-runtime)
+
+---
+
+## Requisitos
+
+### Hardware
+
+| Componente | Minimo         | Recomendado        |
+| ---------- | -------------- | ------------------ |
+| GPU        | GTX 1650 (4GB) | RTX 3060 (12GB)    |
+| RAM        | 16GB           | 32GB               |
+| CPU        | 4 cores        | 8+ cores           |
+| Disco      | 20GB livre     | SSD com 50GB livre |
+
+### Software
+
+- Linux (Ubuntu 22.04+, Fedora 38+, Arch)
+- Python 3.12+
+- CUDA 12.x (NVIDIA) ou ROCm (AMD)
+
+---
+
+## Inicio Rapido
+
+```bash
+# 1. Clone o repositorio
+git clone https://github.com/seu-usuario/mascate.git
+cd mascate
+
+# 2. Instale as dependencias Python
+uv sync
+
+# 3. Instale dependencias do sistema
+uv run python scripts/install_deps.py
+
+# 4. Baixe os modelos de IA (~10GB)
+uv run python scripts/download_models.py
+
+# 5. Crie o arquivo de configuracao
+mkdir -p ~/.config/mascate
+cp config.toml.example ~/.config/mascate/config.toml
+
+# 6. Execute
+uv run mascate run
+```
+
+Para instrucoes detalhadas, veja o [Guia de Instalacao](docs/getting-started.md).
+
+---
+
+## Uso Basico
+
+### Ativacao
+
+- **Hotkey:** Pressione `Ctrl+Shift+M` (padrao)
+- **Wake Word:** Diga "Mascate" (requer configuracao adicional)
+
+### Comandos Suportados
+
+| Categoria | Exemplos                                         |
+| --------- | ------------------------------------------------ |
+| Apps      | "Abre o Firefox", "Abre o VS Code"               |
+| Web       | "Pesquisa no Google por clima", "Abre o YouTube" |
+| Midia     | "Toca musica", "Proxima faixa", "Pausa"          |
+| Sistema   | "Aumenta o volume", "Bloqueia a tela"            |
+| Arquivos  | "Abre a pasta Downloads", "Lista arquivos"       |
+
+Para lista completa, veja o [Guia do Usuario](docs/user-guide.md).
+
+---
+
+## Documentacao
+
+| Documento                                       | Descricao                   |
+| ----------------------------------------------- | --------------------------- |
+| [Inicio Rapido](docs/getting-started.md)        | Instalacao passo a passo    |
+| [Guia do Usuario](docs/user-guide.md)           | Comandos e funcionalidades  |
+| [Configuracao](docs/configuration.md)           | Referencia do config.toml   |
+| [Arquitetura](docs/architecture.md)             | Visao tecnica do sistema    |
+| [Desenvolvimento](docs/development.md)          | Guia para contribuidores    |
+| [Solucao de Problemas](docs/troubleshooting.md) | Problemas comuns e solucoes |
+
+---
+
+## Stack Tecnologica
+
+| Componente | Tecnologia             | Papel                   |
+| ---------- | ---------------------- | ----------------------- |
+| LLM        | IBM Granite 4.0 (1B)   | Interpretacao de intent |
+| STT        | Whisper Large v3       | Fala para texto         |
+| TTS        | Piper                  | Texto para fala         |
+| VAD        | Silero v5              | Deteccao de voz         |
+| Embeddings | BGE-M3                 | Busca semantica (RAG)   |
+| Backend    | llama.cpp, whisper.cpp | Inferencia otimizada    |
+
+---
+
+## Contribuindo
+
+Contribuicoes sao bem-vindas! Veja o [Guia de Desenvolvimento](docs/development.md).
+
+```bash
+# Rodar testes
+uv run pytest
+
+# Verificar codigo
+uv run ruff check src tests
+uv run ruff format src tests
+```
 
 ---
 
 ## Licenca
 
-MIT License
+MIT License - veja [LICENSE](LICENSE) para detalhes.
 
 ---
 
-## Contribuicao
+## Links
 
-Contribuicoes sao bem-vindas! Veja [AGENTS.md](AGENTS.md) para convencoes de codigo.
+- [Documentacao Completa](docs/)
+- [Reportar Bug](https://github.com/seu-usuario/mascate/issues)
+- [Discussoes](https://github.com/seu-usuario/mascate/discussions)

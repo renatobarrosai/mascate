@@ -8,38 +8,73 @@ log_level = "INFO"  # DEBUG, INFO, WARNING, ERROR
 [audio]
 sample_rate = 16000
 channels = 1
-chunk_size = 1024
-vad_threshold = 0.5
-wake_word = "mascate"
+chunk_size = 1024      # Tamanho do bloco de audio (samples)
+vad_threshold = 0.5    # Sensibilidade do VAD (0.0 a 1.0)
+wake_word = "mascate"  # Palavra de ativacao
+
+# Ativacao via atalho de teclado (alternativa ao wake word)
+hotkey_enabled = true       # Habilita ativacao por hotkey
+hotkey = "ctrl+shift+m"     # Combinacao de teclas (ctrl, shift, alt, super + tecla)
+hotkey_only = true          # Se true, desabilita wake word e usa apenas hotkey
+                            # Recomendado para Python 3.12+ (openwakeword incompativel)
+
+# Modelo STT (Whisper)
+[audio.stt]
+model = "ggml-large-v3-q5_0.bin"
+language = "pt"
+n_threads = 4  # Threads para CPU
+
+# Modelo TTS (Piper)
+[audio.tts]
+model = "pt_BR-faber-medium.onnx"
+# use_cuda = false  # Descomente para GPU
 
 [llm]
-# Caminho para o modelo (relativo a ~/.local/share/mascate/models/)
+# Caminho para o modelo GGUF (relativo a models_dir ou absoluto)
 model = "granite-4.0-hybridmamba-1b-instruct-Q8_0.gguf"
-n_gpu_layers = -1  # -1 = todas as camadas na GPU
+n_gpu_layers = -1  # -1 = todas as camadas na GPU, 0 = CPU only
 n_ctx = 4096       # Tamanho do contexto
 n_batch = 512      # Batch size
-temperature = 0.7
-max_tokens = 256
+temperature = 0.1  # Baixa para comandos precisos (0.0 a 1.0)
+max_tokens = 256   # Limite de tokens de saida
+
+[rag]
+# Configuracao do sistema RAG
+collection_name = "mascate_knowledge"
+embedding_model = "BAAI/bge-m3"
+embedding_device = "cpu"  # cpu ou cuda
+top_k = 3  # Numero de documentos a recuperar
 
 [security]
 require_confirmation = true
+
+# Comandos proibidos (substring match, case insensitive)
 blacklist_commands = [
     "rm -rf",
     "rm -r",
-    "dd",
+    "dd if=",
     "mkfs",
     "format",
     "> /dev/",
+    "chmod 777",
+    ":(){ :|:& };:",  # Fork bomb
+    "curl | sh",
+    "wget | sh",
 ]
+
+# Paths protegidos (acesso requer confirmacao)
 protected_paths = [
     "/etc",
     "/boot",
     "/sys",
     "/proc",
     "/dev",
+    "/root",
+    "/var/log",
 ]
 
 [paths]
 models_dir = "~/.local/share/mascate/models"
 data_dir = "~/.local/share/mascate"
 cache_dir = "~/.cache/mascate"
+# qdrant_path = "~/.local/share/mascate/qdrant_db"  # Vector database

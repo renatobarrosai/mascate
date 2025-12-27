@@ -32,9 +32,10 @@ dependencies = [
     "sounddevice>=0.4",
     "numpy>=1.26",
     "scipy>=1.12",
+    "onnxruntime>=1.16",
     
-    # LLM (llama-cpp-python instalado separadamente por GPU)
-    # "llama-cpp-python>=0.2",
+    # Input (hotkey)
+    "pynput>=1.7",
     
     # RAG
     "qdrant-client>=1.7",
@@ -57,12 +58,36 @@ dev = [
     "mypy>=1.8",
 ]
 
+stt = [
+    # Whisper STT via whisper.cpp bindings
+    "pywhispercpp>=1.2",
+]
+
+llm = [
+    # LLM via llama.cpp - requer compilacao com CMAKE_ARGS para GPU
+    # CUDA: CMAKE_ARGS="-DGGML_CUDA=on" uv pip install llama-cpp-python
+    # ROCm: CMAKE_ARGS="-DGGML_HIPBLAS=on" uv pip install llama-cpp-python
+    "llama-cpp-python>=0.2",
+]
+
+wake = [
+    # Wake word detection - NOTA: openwakeword requer tflite-runtime
+    # que so tem wheels para Python 3.8-3.11. Para Python 3.12+,
+    # considere usar porcupine ou vosk como alternativa.
+    # Instalar manualmente: pip install tflite-runtime (se disponivel)
+    # "openwakeword>=0.6",
+]
+
 cuda = [
-    # Instalar manualmente: CMAKE_ARGS="-DGGML_CUDA=on" pip install llama-cpp-python
+    # Placeholder - instalar llama-cpp-python manualmente com CUDA
 ]
 
 rocm = [
-    # Instalar manualmente: CMAKE_ARGS="-DGGML_HIPBLAS=on" pip install llama-cpp-python
+    # Placeholder - instalar llama-cpp-python manualmente com ROCm
+]
+
+all = [
+    "mascate[stt,llm]",
 ]
 
 [project.scripts]

@@ -8,6 +8,9 @@ from typing import TYPE_CHECKING
 import pytest
 
 from mascate.core.config import (
+    DEFAULT_CACHE_DIR,
+    DEFAULT_DATA_DIR,
+    DEFAULT_MODELS_DIR,
     AudioConfig,
     Config,
     LLMConfig,
@@ -15,9 +18,6 @@ from mascate.core.config import (
     _expand_path,
     get_config,
     reset_config,
-    DEFAULT_CACHE_DIR,
-    DEFAULT_DATA_DIR,
-    DEFAULT_MODELS_DIR,
 )
 from mascate.core.exceptions import ConfigurationError
 

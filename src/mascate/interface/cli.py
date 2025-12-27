@@ -1,116 +1,162 @@
-"""CLI do Mascate."""
+"""Interface de Linha de Comando (CLI) do Mascate.
+
+Ponto de entrada para execução e gerenciamento do assistente.
+"""
 
 from __future__ import annotations
 
+import logging
 import sys
 
+import click
+from rich.logging import RichHandler
 
-def main() -> int:
-    """Entry point da CLI.
+from mascate.audio.capture import AudioCapture
+from mascate.audio.pipeline import AudioPipeline
+from mascate.audio.stt.whisper import WhisperSTT
+from mascate.audio.tts.piper import PiperTTS
+from mascate.audio.vad.processor import VADProcessor
+from mascate.audio.wake.detector import WakeWordDetector
+from mascate.core.config import Config
+from mascate.core.orchestrator import Orchestrator
+from mascate.executor.executor import Executor
+from mascate.intelligence.brain import Brain
+from mascate.intelligence.llm.granite import GraniteLLM
+from mascate.intelligence.rag.knowledge import KnowledgeBase
+from mascate.intelligence.rag.retriever import RAGRetriever
+from mascate.interface.hud import HUD
 
-    Returns:
-        Codigo de saida.
-    """
+# Configuração de Logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(message)s",
+    datefmt="[%X]",
+    handlers=[RichHandler(rich_tracebacks=True, show_path=False)],
+)
+
+logger = logging.getLogger("mascate")
+
+
+@click.group()
+def main() -> None:
+    """Mascate - Assistente de Voz Edge AI."""
+    pass
+
+
+@main.command()
+def version() -> None:
+    """Exibe a versão do Mascate."""
+    click.echo("Mascate v0.1.0")
+
+
+@main.command()
+def check() -> None:
+    """Verifica dependências e ambiente."""
+    config = Config.load()
+    click.echo(f"Config carregada de: {config.data_dir}")
+    click.echo("Verificando modelos...")
+
+    models = [
+        (
+            "Granite LLM",
+            config.llm.model_path
+            or config.models_dir / "granite-4.0-hybridmamba-1b-instruct-Q8_0.gguf",
+        ),
+        ("Whisper STT", config.models_dir / "ggml-large-v3-q5_0.bin"),
+        ("Silero VAD", config.models_dir / "silero_vad.onnx"),
+        ("Piper TTS", config.models_dir / "pt_BR-faber-medium.onnx"),
+    ]
+
+    for name, path in models:
+        status = "[OK]" if path.exists() else "[MISSING]"
+        click.echo(f"{status} {name}: {path}")
+
+
+@main.command()
+@click.option("--debug", is_flag=True, help="Habilita logs de debug.")
+def run(debug: bool) -> None:
+    """Inicia o assistente Mascate."""
     try:
-        import click
-    except ImportError:
-        print("Erro: click nao instalado.")
-        print("Execute: uv sync")
-        return 1
+        config = Config.load()
+        if debug:
+            logging.getLogger().setLevel(logging.DEBUG)
+            config.debug = True
 
-    from mascate.core.logging import setup_logging
+        logger.info("Inicializando componentes...")
 
-    @click.group()
-    @click.option("--debug/--no-debug", default=False, help="Modo debug")
-    @click.pass_context
-    def cli(ctx: click.Context, debug: bool) -> None:
-        """Mascate - Assistente de Voz Edge AI para Linux."""
-        ctx.ensure_object(dict)
-        ctx.obj["debug"] = debug
-        setup_logging()
+        # 1. Áudio - Captura
+        capture = AudioCapture(
+            sample_rate=config.audio.sample_rate,
+            channels=config.audio.channels,
+            chunk_size=config.audio.chunk_size,
+        )
 
-    @cli.command()
-    @click.pass_context
-    def run(_ctx: click.Context) -> None:
-        """Executa o loop principal do Mascate."""
-        from rich.console import Console
+        # 1.2 Wake Word Detector
+        wake_detector = WakeWordDetector(
+            wakeword=config.audio.wake_word,
+            threshold=config.audio.vad_threshold,
+        )
 
-        console = Console()
-        console.print("[bold green]Mascate v0.1.0[/bold green]")
-        console.print("Assistente de Voz Edge AI para Linux")
-        console.print()
-        console.print("[yellow]Status:[/yellow] Em desenvolvimento (Fase 0)")
-        console.print()
-        console.print("[dim]Pressione Ctrl+C para sair[/dim]")
+        # 1.3 VAD
+        vad_model = config.models_dir / "silero_vad.onnx"
+        vad_processor = VADProcessor(
+            model_path=vad_model,
+            threshold=0.5,
+        )
 
-        try:
-            # TODO: Implementar loop principal
-            import time
+        # 1.4 STT
+        stt_model = config.models_dir / "ggml-large-v3-q5_0.bin"
+        stt = WhisperSTT(model_path=stt_model)
 
-            while True:
-                time.sleep(1)
-        except KeyboardInterrupt:
-            console.print("\n[dim]Ate logo![/dim]")
+        # 1.5 Audio Pipeline
+        audio_pipeline = AudioPipeline(capture, wake_detector, vad_processor, stt)
 
-    @cli.command()
-    def version() -> None:
-        """Mostra a versao do Mascate."""
-        from mascate import __version__
+        # 2. Inteligência - Knowledge Base
+        kb = KnowledgeBase(config)
 
-        print(f"Mascate v{__version__}")
+        # 2.2 RAG Retriever
+        retriever = RAGRetriever(kb)
 
-    @cli.command()
-    def check() -> None:
-        """Verifica a instalacao e dependencias."""
-        from rich.console import Console
-        from rich.table import Table
+        # 2.3 LLM
+        llm_model = (
+            config.llm.model_path
+            or config.models_dir / "granite-4.0-hybridmamba-1b-instruct-Q8_0.gguf"
+        )
+        llm = GraniteLLM(
+            model_path=llm_model,
+            n_gpu_layers=config.llm.n_gpu_layers,
+            n_ctx=config.llm.n_ctx,
+        )
 
-        console = Console()
-        console.print("[bold]Verificando instalacao...[/bold]")
-        console.print()
+        # 2.4 Brain
+        brain = Brain(llm, retriever)
 
-        table = Table(title="Status de Dependencias")
-        table.add_column("Componente", style="cyan")
-        table.add_column("Status", style="green")
-        table.add_column("Notas")
+        # 3. Execução
+        executor = Executor(config)
 
-        # Verifica dependencias
-        checks = [
-            ("Python", True, f"v{sys.version_info.major}.{sys.version_info.minor}"),
-            ("Click", True, "CLI framework"),
-            ("Rich", True, "Terminal UI"),
-        ]
+        # 4. Interface - HUD
+        hud = HUD()
 
-        # Tenta importar dependencias opcionais
-        try:
-            import sounddevice  # noqa: F401
+        # 4.2 TTS (opcional)
+        tts_model = config.models_dir / "pt_BR-faber-medium.onnx"
+        tts = None
+        if tts_model.exists():
+            try:
+                tts = PiperTTS(model_path=tts_model)
+            except Exception as e:
+                logger.warning("TTS nao disponivel: %s", e)
 
-            checks.append(("sounddevice", True, "Audio I/O"))
-        except ImportError:
-            checks.append(("sounddevice", False, "pip install sounddevice"))
+        # 5. Orquestração
+        orchestrator = Orchestrator(audio_pipeline, brain, executor, hud, tts=tts)
 
-        try:
-            import numpy
+        orchestrator.start()
 
-            checks.append(("numpy", True, f"v{numpy.__version__}"))
-        except ImportError:
-            checks.append(("numpy", False, "pip install numpy"))
-
-        try:
-            from huggingface_hub import __version__ as hf_version
-
-            checks.append(("huggingface_hub", True, f"v{hf_version}"))
-        except ImportError:
-            checks.append(("huggingface_hub", False, "pip install huggingface-hub"))
-
-        for name, ok, note in checks:
-            status = "[green]OK[/green]" if ok else "[red]MISSING[/red]"
-            table.add_row(name, status, note)
-
-        console.print(table)
-
-    return cli(standalone_mode=False) or 0
+    except Exception as e:
+        logger.critical("Erro fatal ao iniciar Mascate: %s", e)
+        if debug:
+            logger.exception("Traceback:")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

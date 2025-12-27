@@ -1,0 +1,21 @@
+# JSON Primitives GBNF
+
+ws ::= [ 	
+]*
+string ::= "([^"] | \\.)*" ws
+number ::= ("-"? ([0-9]+) ("." [0-9]+)? ([eE] [-+]? [0-9]+)?) ws
+boolean ::= ("true" | "false") ws
+null ::= "null" ws
+
+value ::= object | array | string | number | boolean | null
+
+object ::= "{" ws (
+            string ":" ws value
+            ("," ws string ":" ws value)*
+          )? "}" ws
+
+array  ::= "[" ws (
+            value
+            ("," ws value)*
+          )? "]" ws
+
