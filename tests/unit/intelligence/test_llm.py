@@ -63,16 +63,15 @@ def test_generate_streaming(MockGrammar, MockLlama):
     )
     MockLlama.return_value = mock_instance
 
-    with patch.object(Path, "exists", return_value=True):
-        with patch(
-            "mascate.intelligence.llm.granite.GrammarLoader.load",
-            return_value="root ::= ...",
-        ):
-            llm = GraniteLLM(model_path="model.gguf")
-            generator = llm.generate("Hello", stream=True)
+    with patch.object(Path, "exists", return_value=True), patch(
+        "mascate.intelligence.llm.granite.GrammarLoader.load",
+        return_value="root ::= ...",
+    ):
+        llm = GraniteLLM(model_path="model.gguf")
+        generator = llm.generate("Hello", stream=True)
 
-            result = list(generator)
-            assert result == ["{", "}"]
+        result = list(generator)
+        assert result == ["{", "}"]
 
 
 @patch("mascate.intelligence.llm.granite.Llama", None)

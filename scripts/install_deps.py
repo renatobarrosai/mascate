@@ -95,6 +95,22 @@ OPTIONAL_PACKAGES = [
     ("ydotool", "Simulacao de input (Wayland)"),
 ]
 
+# Pacotes CUDA (NVIDIA)
+CUDA_PACKAGES: dict[str, dict[str, str]] = {
+    "ubuntu": {
+        "cuda-toolkit": "nvidia-cuda-toolkit",
+        "cuda-dev": "nvidia-cuda-dev",
+    },
+    "arch": {
+        "cuda-toolkit": "cuda",
+        "cuda-dev": "cuda",
+    },
+    "fedora": {
+        "cuda-toolkit": "cuda",
+        "cuda-dev": "cuda-devel",
+    },
+}
+
 
 def detect_distro() -> Distro | None:
     """Detecta a distribuicao Linux.
@@ -188,12 +204,95 @@ def show_packages_table() -> None:
     console.print()
 
 
+def check_nvidia_gpu() -> bool:
+    """Verifica se existe GPU NVIDIA no sistema.
+
+    Returns:
+        True se GPU NVIDIA detectada.
+    """
+    if shutil.which("nvidia-smi"):
+        try:
+            result = subprocess.run(
+                ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            return result.returncode == 0 and result.stdout.strip() != ""
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            pass
+
+    # Fallback: verifica lspci
+    if shutil.which("lspci"):
+        try:
+            result = subprocess.run(
+                ["lspci"], capture_output=True, text=True, check=False
+            )
+            return "nvidia" in result.stdout.lower()
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            pass
+
+    return False
+
+
+def install_cuda_packages(distro: Distro) -> bool:
+    """Instala pacotes CUDA para a distribuicao.
+
+    Args:
+        distro: Informacoes da distribuicao.
+
+    Returns:
+        True se instalacao bem-sucedida.
+    """
+    # Encontra o mapeamento CUDA para esta distro
+    cuda_pkgs = None
+    for distro_key in CUDA_PACKAGES:
+        if distro_key in distro.name.lower():
+            cuda_pkgs = CUDA_PACKAGES[distro_key]
+            break
+
+    if not cuda_pkgs:
+        console.print(f"  [yellow]WARN[/yellow] CUDA nao mapeado para {distro.name}")
+        return False
+
+    pkg_names = list(cuda_pkgs.values())
+    cmd = distro.install_cmd + pkg_names
+    console.print(f"  [dim]Executando: {' '.join(cmd)}[/dim]")
+
+    try:
+        result = subprocess.run(cmd, check=True)
+        return result.returncode == 0
+    except subprocess.CalledProcessError as e:
+        console.print(f"  [red]ERROR[/red] Falha na instalacao CUDA: {e}")
+        return False
+    except FileNotFoundError:
+        console.print(
+            f"  [red]ERROR[/red] Gerenciador '{distro.package_manager}' nao encontrado"
+        )
+        return False
+
+
 def main() -> int:
     """Funcao principal.
 
     Returns:
         Codigo de saida (0 = sucesso).
     """
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Instala dependencias do sistema")
+    parser.add_argument(
+        "--cuda",
+        action="store_true",
+        help="Tambem instala CUDA toolkit (para GPU NVIDIA)",
+    )
+    parser.add_argument(
+        "--skip-optional",
+        action="store_true",
+        help="Pula instalacao de pacotes opcionais",
+    )
+    args = parser.parse_args()
+
     console.print(
         Panel.fit(
             "[bold cyan]Mascate[/bold cyan] - Instalacao de Dependencias do Sistema",
@@ -249,11 +348,30 @@ def main() -> int:
         console.print()
 
     # Instala pacotes opcionais
-    if missing_optional:
+    if missing_optional and not args.skip_optional:
         console.print(
             f"[bold]Instalando {len(missing_optional)} pacotes opcionais...[/bold]"
         )
         install_packages(distro, missing_optional)
+        console.print()
+
+    # Instala CUDA se solicitado ou se GPU NVIDIA detectada
+    if args.cuda or check_nvidia_gpu():
+        has_nvcc = shutil.which("nvcc") is not None
+        if has_nvcc:
+            console.print("[green]OK[/green] CUDA toolkit ja instalado")
+        else:
+            console.print()
+            console.print(
+                "[bold]GPU NVIDIA detectada. Instalando CUDA toolkit...[/bold]"
+            )
+            if install_cuda_packages(distro):
+                console.print("[green]OK[/green] CUDA toolkit instalado")
+            else:
+                console.print(
+                    "[yellow]WARN[/yellow] CUDA nao instalado. "
+                    "Visite: https://developer.nvidia.com/cuda-downloads"
+                )
         console.print()
 
     # Sucesso
@@ -267,12 +385,12 @@ def main() -> int:
 
     console.print("[bold]Proximos passos:[/bold]")
     console.print(
-        "  1. [cyan]uv sync[/cyan]                              # Deps Python"
+        "  1. [cyan]uv run python scripts/setup.py[/cyan]        # Setup completo (CUDA + modelos)"
     )
     console.print(
-        "  2. [cyan]uv run python scripts/download_models.py[/cyan]  # Modelos"
+        "  2. [cyan]uv run mascate check[/cyan]                  # Verificar instalacao"
     )
-    console.print("  3. [cyan]uv run mascate run[/cyan]                   # Executar")
+    console.print("  3. [cyan]uv run mascate run --hotkey-only[/cyan]      # Executar")
 
     return 0
 
