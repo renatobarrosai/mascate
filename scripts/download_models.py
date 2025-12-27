@@ -58,11 +58,31 @@ MODELS: list[ModelSpec] = [
         name="whisper-large-v3",
         repo_id="ggerganov/whisper.cpp",
         filename="ggml-large-v3-q5_0.bin",
-        description="Whisper Large v3 - STT (Q5_K_M)",
+        description="Whisper Large v3 - STT (Q5_0)",
         size_gb=1.1,
     ),
-    # Piper TTS sera baixado via piper-tts package
-    # BGE-M3 sera baixado via sentence-transformers
+    ModelSpec(
+        name="silero-vad",
+        repo_id="snakers4/silero-vad",
+        filename="silero_vad.onnx",
+        description="Silero VAD v5 - Deteccao de voz (ONNX)",
+        size_gb=0.002,  # ~2MB
+    ),
+    ModelSpec(
+        name="piper-tts-pt-br",
+        repo_id="rhasspy/piper-voices",
+        filename="pt/pt_BR/faber/medium/pt_BR-faber-medium.onnx",
+        description="Piper TTS pt-BR Faber Medium - Sintese de voz",
+        size_gb=0.065,  # ~65MB
+    ),
+    ModelSpec(
+        name="piper-tts-pt-br-config",
+        repo_id="rhasspy/piper-voices",
+        filename="pt/pt_BR/faber/medium/pt_BR-faber-medium.onnx.json",
+        description="Piper TTS pt-BR Faber Medium - Config JSON",
+        size_gb=0.001,  # ~1KB
+    ),
+    # BGE-M3 sera baixado via sentence-transformers automaticamente
 ]
 
 
@@ -152,6 +172,20 @@ class ProgressCallback:
         self.progress.update(self.task_id, completed=bytes_downloaded)
 
 
+def get_final_filename(model: ModelSpec) -> str:
+    """Extrai o nome final do arquivo (sem subdiretórios).
+
+    Args:
+        model: Especificacao do modelo.
+
+    Returns:
+        Nome do arquivo sem path.
+    """
+    # Se o filename tem subdiretorios (ex: pt/pt_BR/faber/medium/file.onnx)
+    # retorna apenas o nome do arquivo
+    return Path(model.filename).name
+
+
 def download_model(
     model: ModelSpec,
     models_dir: Path,
@@ -174,7 +208,9 @@ def download_model(
         console.print("Execute: [cyan]uv pip install huggingface-hub[/cyan]")
         return False
 
-    output_path = models_dir / model.filename
+    # Nome final do arquivo (sem subdiretorios)
+    final_filename = get_final_filename(model)
+    output_path = models_dir / final_filename
 
     # Verifica se ja existe
     if output_path.exists():
@@ -217,7 +253,30 @@ def download_model(
         progress.update(download_task, completed=progress.tasks[download_task].total)
         progress.remove_task(download_task)
 
-        console.print(f"  [green]OK[/green] Salvo em {downloaded_path}")
+        downloaded_path = Path(downloaded_path)
+
+        # Se o arquivo foi baixado em subdiretorio, move para a raiz
+        if (
+            downloaded_path.name != final_filename
+            or downloaded_path.parent != models_dir
+        ):
+            final_path = models_dir / final_filename
+            # Move o arquivo
+            import shutil
+
+            shutil.move(str(downloaded_path), str(final_path))
+            console.print(f"  [green]OK[/green] Movido para {final_path}")
+            # Limpa subdiretorios vazios
+            try:
+                for parent in downloaded_path.parents:
+                    if parent == models_dir:
+                        break
+                    if parent.exists() and not any(parent.iterdir()):
+                        parent.rmdir()
+            except Exception:
+                pass  # Ignora erros ao limpar diretorios
+        else:
+            console.print(f"  [green]OK[/green] Salvo em {downloaded_path}")
 
         # Verifica hash se disponivel
         if model.sha256:
@@ -226,7 +285,7 @@ def download_model(
                 total=None,
             )
             if verify_sha256_with_progress(
-                Path(downloaded_path), model.sha256, progress, verify_task
+                output_path, model.sha256, progress, verify_task
             ):
                 progress.remove_task(verify_task)
                 console.print("  [green]OK[/green] Hash verificado")
