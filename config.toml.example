@@ -1,0 +1,45 @@
+# Mascate - Configuracao
+# Copie este arquivo para ~/.config/mascate/config.toml
+
+[general]
+debug = false
+log_level = "INFO"  # DEBUG, INFO, WARNING, ERROR
+
+[audio]
+sample_rate = 16000
+channels = 1
+chunk_size = 1024
+vad_threshold = 0.5
+wake_word = "mascate"
+
+[llm]
+# Caminho para o modelo (relativo a ~/.local/share/mascate/models/)
+model = "granite-4.0-hybridmamba-1b-instruct-Q8_0.gguf"
+n_gpu_layers = -1  # -1 = todas as camadas na GPU
+n_ctx = 4096       # Tamanho do contexto
+n_batch = 512      # Batch size
+temperature = 0.7
+max_tokens = 256
+
+[security]
+require_confirmation = true
+blacklist_commands = [
+    "rm -rf",
+    "rm -r",
+    "dd",
+    "mkfs",
+    "format",
+    "> /dev/",
+]
+protected_paths = [
+    "/etc",
+    "/boot",
+    "/sys",
+    "/proc",
+    "/dev",
+]
+
+[paths]
+models_dir = "~/.local/share/mascate/models"
+data_dir = "~/.local/share/mascate"
+cache_dir = "~/.cache/mascate"
